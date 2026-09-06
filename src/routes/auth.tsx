@@ -41,7 +41,7 @@ function AuthPage() {
           },
         });
         if (error) throw error;
-        setInfo("Hesabın oluşturuldu! Giriş yapabilirsin.");
+        setInfo("Hesabın oluşturuldu! Giriş yapmadan önce e-postana gönderdiğimiz onay bağlantısına tıkla.");
         setMode("signin");
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -49,7 +49,16 @@ function AuthPage() {
         navigate({ to: "/" });
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Bir hata oluştu");
+      const msg = err instanceof Error ? err.message : "";
+      if (msg.toLowerCase().includes("email not confirmed")) {
+        setError("E-postan henüz onaylanmamış. E-postana gelen bağlantıya tıklayarak onayla.");
+      } else if (msg.toLowerCase().includes("invalid login credentials")) {
+        setError("E-posta veya şifre hatalı.");
+      } else if (msg.toLowerCase().includes("already registered")) {
+        setError("Bu e-posta ile zaten bir hesap var. Giriş yapmayı dene.");
+      } else {
+        setError(msg || "Bir hata oluştu");
+      }
     } finally {
       setLoading(false);
     }
