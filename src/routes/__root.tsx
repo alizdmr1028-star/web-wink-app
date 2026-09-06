@@ -76,15 +76,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   head: () => ({
     meta: [
       { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+      { name: "theme-color", content: "#ffffff" },
+      { name: "apple-mobile-web-app-capable", content: "yes" },
+      { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+      { title: "Sohbet — Anlık Mesajlaşma" },
+      { name: "description", content: "Arkadaşlarınla gerçek zamanlı mesajlaş. iOS uyumlu, hızlı ve sade sohbet uygulaması." },
+      { property: "og:title", content: "Sohbet — Anlık Mesajlaşma" },
+      { property: "og:description", content: "Arkadaşlarınla gerçek zamanlı mesajlaş. iOS uyumlu, hızlı ve sade sohbet uygulaması." },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:card", content: "summary" },
     ],
     links: [
       {
