@@ -212,13 +212,35 @@ function ChatPage() {
               <p className="text-xs text-muted-foreground">{me?.display_name ?? "…"} olarak giriş yapıldı</p>
             </div>
           </div>
-          <button
-            onClick={signOut}
-            className="text-[15px] font-medium text-primary"
-            aria-label="Çıkış yap"
-          >
-            Çıkış
-          </button>
+          <div className="flex items-center gap-4">
+            {notifPermission !== "unsupported" && notifPermission !== "granted" && (
+              <button
+                onClick={enableNotifications}
+                className="text-primary"
+                aria-label="Bildirimleri aç"
+                title="Bildirimleri aç"
+              >
+                <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
+                  <path d="M13.7 21a2 2 0 0 1-3.4 0" />
+                </svg>
+              </button>
+            )}
+            {notifPermission === "granted" && (
+              <span className="text-primary" aria-label="Bildirimler açık" title="Bildirimler açık">
+                <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
+                  <path d="M12 22a2.2 2.2 0 0 0 2.2-2.2H9.8A2.2 2.2 0 0 0 12 22Zm7-5.3v.5H5v-.5l1.8-1.8V9.2a5.2 5.2 0 0 1 3.9-5V3.5a1.3 1.3 0 0 1 2.6 0v.7a5.2 5.2 0 0 1 3.9 5v5.7L19 16.7Z" />
+                </svg>
+              </span>
+            )}
+            <button
+              onClick={signOut}
+              className="text-[15px] font-medium text-primary"
+              aria-label="Çıkış yap"
+            >
+              Çıkış
+            </button>
+          </div>
         </div>
       </header>
 
