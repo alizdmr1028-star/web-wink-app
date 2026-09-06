@@ -157,6 +157,7 @@ function ChatPage() {
             return prev;
           });
           scrollToBottom();
+          if (msg.user_id !== user.id) showMessageNotification(msg);
         },
       )
       .subscribe();
