@@ -14,22 +14,58 @@ export type Database = {
   }
   public: {
     Tables: {
+      message_history: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          message_id: string
+          new_content: string | null
+          previous_content: string
+          user_id: string
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          message_id: string
+          new_content?: string | null
+          previous_content: string
+          user_id: string
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          message_id?: string
+          new_content?: string | null
+          previous_content?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       messages: {
         Row: {
           content: string
           created_at: string
+          deleted_at: string | null
+          edited_at: string | null
           id: string
           user_id: string
         }
         Insert: {
           content: string
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
           user_id: string
         }
         Update: {
           content?: string
           created_at?: string
+          deleted_at?: string | null
+          edited_at?: string | null
           id?: string
           user_id?: string
         }

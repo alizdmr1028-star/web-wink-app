@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.log_message_change() FROM PUBLIC, anon, authenticated;
