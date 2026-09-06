@@ -79,7 +79,7 @@ function ChatPage() {
 
   function showMessageNotification(msg: Message) {
     if (!("Notification" in window) || Notification.permission !== "granted") return;
-    const sender = profiles[msg.user_id]?.display_name ?? "Yeni mesaj";
+    const sender = profilesRef.current[msg.user_id]?.display_name ?? "Yeni mesaj";
     const notification = new Notification(sender, {
       body: msg.content,
       tag: "chat-message",
