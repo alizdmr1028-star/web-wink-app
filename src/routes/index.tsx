@@ -59,8 +59,38 @@ function ChatPage() {
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const [draft, setDraft] = useState("");
   const [sending, setSending] = useState(false);
+  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!("Notification" in window)) {
+      setNotifPermission("unsupported");
+    } else {
+      setNotifPermission(Notification.permission);
+    }
+  }, []);
+
+  async function enableNotifications() {
+    if (!("Notification" in window)) return;
+    const result = await Notification.requestPermission();
+    setNotifPermission(result);
+  }
+
+  function showMessageNotification(msg: Message) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+    const sender = profiles[msg.user_id]?.display_name ?? "Yeni mesaj";
+    const notification = new Notification(sender, {
+      body: msg.content,
+      tag: "chat-message",
+      icon: "/favicon.ico",
+    });
+    notification.onclick = () => {
+      window.focus();
+      navigate({ to: "/" });
+      notification.close();
+    };
+  }
 
   const scrollToBottom = useCallback((smooth = true) => {
     requestAnimationFrame(() => {
