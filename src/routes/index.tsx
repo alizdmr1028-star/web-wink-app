@@ -62,6 +62,8 @@ function ChatPage() {
   const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const profilesRef = useRef<Record<string, Profile>>({});
+  profilesRef.current = profiles;
 
   useEffect(() => {
     if (!("Notification" in window)) {
