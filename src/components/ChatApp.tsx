@@ -230,17 +230,14 @@ export default function ChatApp({ user, settings, onSettings, onLock, onPanic }:
       setSearchState("Kendine davet gönderemezsin.");
       return;
     }
-    const { data: conv, error } = await supabase
-      .from("conversations")
-      .insert({ created_by: user.id })
-      .select()
-      .single();
-    if (error || !conv) {
+    const convId = crypto.randomUUID();
+    const { error } = await supabase.from("conversations").insert({ id: convId, created_by: user.id });
+    if (error) {
       setSearchState("Sohbet başlatılamadı.");
       return;
     }
-    await supabase.from("conversation_members").insert({ conversation_id: conv.id, user_id: user.id });
-    await supabase.from("invites").insert({ conversation_id: conv.id, from_user: user.id, to_user: target.id });
+    await supabase.from("conversation_members").insert({ conversation_id: convId, user_id: user.id });
+    await supabase.from("invites").insert({ conversation_id: convId, from_user: user.id, to_user: target.id });
     setSearchNick("");
     setSearchState(`Davet gönderildi: @${target.username}`);
     void loadConversations();
