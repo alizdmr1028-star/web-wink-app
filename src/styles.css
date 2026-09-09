@@ -86,6 +86,75 @@
   }
 }
 
+/* Chat themes */
+.theme-whatsapp {
+  --background: oklch(0.96 0.012 140);
+  --foreground: oklch(0.2 0.01 150);
+  --card: oklch(0.99 0.004 140);
+  --secondary: oklch(0.93 0.01 140);
+  --muted: oklch(0.93 0.01 140);
+  --muted-foreground: oklch(0.52 0.02 150);
+  --border: oklch(0.88 0.01 140);
+  --input: oklch(0.88 0.01 140);
+  --primary: oklch(0.55 0.11 160);
+  --primary-foreground: oklch(1 0 0);
+  --bubble-in: oklch(1 0 0);
+  --bubble-in-foreground: oklch(0.2 0.01 150);
+  --bubble-out: oklch(0.9 0.07 145);
+  --bubble-out-foreground: oklch(0.2 0.01 150);
+  --header: oklch(0.95 0.012 150 / 92%);
+}
+
+.theme-instagram-dark {
+  --background: oklch(0.16 0.008 280);
+  --foreground: oklch(0.97 0 0);
+  --card: oklch(0.21 0.01 280);
+  --secondary: oklch(0.25 0.012 280);
+  --muted: oklch(0.25 0.012 280);
+  --muted-foreground: oklch(0.68 0.01 280);
+  --border: oklch(0.28 0.012 280);
+  --input: oklch(0.28 0.012 280);
+  --primary: oklch(0.62 0.21 330);
+  --primary-foreground: oklch(1 0 0);
+  --bubble-in: oklch(0.26 0.012 280);
+  --bubble-in-foreground: oklch(0.97 0 0);
+  --bubble-out: oklch(0.62 0.21 330);
+  --bubble-out-foreground: oklch(1 0 0);
+  --header: oklch(0.16 0.008 280 / 92%);
+}
+
+.theme-instagram-light {
+  --background: oklch(1 0 0);
+  --foreground: oklch(0.18 0.01 280);
+  --card: oklch(0.99 0 0);
+  --secondary: oklch(0.96 0.004 280);
+  --muted: oklch(0.96 0.004 280);
+  --muted-foreground: oklch(0.55 0.01 280);
+  --border: oklch(0.91 0.004 280);
+  --input: oklch(0.91 0.004 280);
+  --primary: oklch(0.62 0.21 330);
+  --primary-foreground: oklch(1 0 0);
+  --bubble-in: oklch(0.95 0.004 280);
+  --bubble-in-foreground: oklch(0.18 0.01 280);
+  --bubble-out: oklch(0.62 0.21 330);
+  --bubble-out-foreground: oklch(1 0 0);
+  --header: oklch(1 0 0 / 92%);
+}
+
+.theme-whatsapp .chat-surface {
+  background-color: oklch(0.94 0.015 105);
+  background-image: radial-gradient(oklch(0.88 0.02 110) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+.privacy-target {
+  transition: filter 0.12s ease;
+}
+
+body.app-obscured .privacy-target {
+  filter: blur(26px);
+}
+
 @layer utilities {
   .safe-top {
     padding-top: env(safe-area-inset-top);

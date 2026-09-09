@@ -1,352 +1,212 @@
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { createFileRoute } from "@tanstack/react-router";
+import { useCallback, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
+import Calculator from "@/components/Calculator";
+import ChatApp from "@/components/ChatApp";
+import { checkPin, createIdentity, signInWithPin, storedNick, wipeLocal } from "@/lib/identity";
+import { defaultSettings, loadSettings, saveSettings, type Settings } from "@/lib/settings";
 
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Sohbet — Anlık Mesajlaşma" },
-      { name: "description", content: "Arkadaşlarınla gerçek zamanlı mesajlaş. iOS uyumlu, hızlı ve sade sohbet uygulaması." },
-      { property: "og:title", content: "Sohbet — Anlık Mesajlaşma" },
-      { property: "og:description", content: "Arkadaşlarınla gerçek zamanlı mesajlaş. iOS uyumlu, hızlı ve sade sohbet uygulaması." },
+      { title: "Hesap Makinesi" },
+      { name: "description", content: "Basit, hızlı ve reklamsız bir hesap makinesi." },
+      { property: "og:title", content: "Hesap Makinesi" },
+      { property: "og:description", content: "Basit, hızlı ve reklamsız bir hesap makinesi." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
   }),
-  component: ChatPage,
+  component: HomePage,
 });
 
-type Profile = {
-  id: string;
-  display_name: string;
-  avatar_color: string;
-};
-
-type Message = {
-  id: string;
-  user_id: string;
-  content: string;
-  created_at: string;
-  profiles?: Profile | null;
-};
-
-function formatTime(iso: string) {
-  return new Date(iso).toLocaleTimeString("tr-TR", { hour: "2-digit", minute: "2-digit" });
-}
-
-function sameDay(a: string, b: string) {
-  const da = new Date(a);
-  const db = new Date(b);
-  return da.toDateString() === db.toDateString();
-}
-
-function dayLabel(iso: string) {
-  const d = new Date(iso);
-  const today = new Date();
-  const yesterday = new Date();
-  yesterday.setDate(today.getDate() - 1);
-  if (d.toDateString() === today.toDateString()) return "Bugün";
-  if (d.toDateString() === yesterday.toDateString()) return "Dün";
-  return d.toLocaleDateString("tr-TR", { day: "numeric", month: "long", year: "numeric" });
-}
-
-function ChatPage() {
-  const navigate = useNavigate();
+function HomePage() {
   const [user, setUser] = useState<User | null>(null);
-  const [checking, setChecking] = useState(true);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [profiles, setProfiles] = useState<Record<string, Profile>>({});
-  const [draft, setDraft] = useState("");
-  const [sending, setSending] = useState(false);
-  const [notifPermission, setNotifPermission] = useState<NotificationPermission | "unsupported">("default");
-  const bottomRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const profilesRef = useRef<Record<string, Profile>>({});
-  profilesRef.current = profiles;
+  const [unlocked, setUnlocked] = useState(false);
+  const [onboarding, setOnboarding] = useState<string | null>(null);
+  const [nick, setNick] = useState("");
+  const [nickError, setNickError] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [settings, setSettings] = useState<Settings>(defaultSettings);
 
   useEffect(() => {
-    if (!("Notification" in window)) {
-      setNotifPermission("unsupported");
-    } else {
-      setNotifPermission(Notification.permission);
-    }
+    setSettings(loadSettings());
   }, []);
 
-  async function enableNotifications() {
-    if (!("Notification" in window)) return;
-    const result = await Notification.requestPermission();
-    setNotifPermission(result);
-  }
+  const updateSettings = useCallback((s: Settings) => {
+    setSettings(s);
+    saveSettings(s);
+  }, []);
 
-  function showMessageNotification(msg: Message) {
-    if (!("Notification" in window) || Notification.permission !== "granted") return;
-    const sender = profilesRef.current[msg.user_id]?.display_name ?? "Yeni mesaj";
-    const notification = new Notification(sender, {
-      body: msg.content,
-      tag: "chat-message",
-      icon: "/favicon.ico",
-    });
-    notification.onclick = () => {
-      window.focus();
-      navigate({ to: "/" });
-      notification.close();
+  const lock = useCallback(() => {
+    setUnlocked(false);
+    setUser(null);
+  }, []);
+
+  // lock when app goes to background
+  useEffect(() => {
+    if (!settings.lockOnBackground) return;
+    const onHide = () => {
+      if (document.visibilityState === "hidden") lock();
     };
-  }
-
-  const scrollToBottom = useCallback((smooth = true) => {
-    requestAnimationFrame(() => {
-      bottomRef.current?.scrollIntoView({ behavior: smooth ? "smooth" : "auto" });
-    });
-  }, []);
-
-  useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
-      if (!data.session) {
-        navigate({ to: "/auth" });
-      } else {
-        setUser(data.session.user);
-        setChecking(false);
-      }
-    });
-    const {
-      data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (!session) navigate({ to: "/auth" });
-      else setUser(session.user);
-    });
-    return () => subscription.unsubscribe();
-  }, [navigate]);
-
-  useEffect(() => {
-    if (!user) return;
-
-    async function loadInitial() {
-      const { data: msgs } = await supabase
-        .from("messages")
-        .select("*")
-        .order("created_at", { ascending: true })
-        .limit(200);
-      const { data: profs } = await supabase.from("profiles").select("*");
-      const map: Record<string, Profile> = {};
-      (profs ?? []).forEach((p) => (map[p.id] = p));
-      setProfiles(map);
-      setMessages(msgs ?? []);
-      scrollToBottom(false);
-    }
-    loadInitial();
-
-    const channel = supabase
-      .channel("messages-realtime")
-      .on(
-        "postgres_changes",
-        { event: "INSERT", schema: "public", table: "messages" },
-        (payload) => {
-          const msg = payload.new as Message;
-          setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
-          setProfiles((prev) => {
-            if (prev[msg.user_id]) return prev;
-            supabase
-              .from("profiles")
-              .select("*")
-              .eq("id", msg.user_id)
-              .single()
-              .then(({ data }) => {
-                if (data) setProfiles((p) => ({ ...p, [data.id]: data }));
-              });
-            return prev;
-          });
-          scrollToBottom();
-          if (msg.user_id !== user.id) showMessageNotification(msg);
-        },
-      )
-      .subscribe();
-
+    document.addEventListener("visibilitychange", onHide);
     return () => {
-      supabase.removeChannel(channel);
+      document.removeEventListener("visibilitychange", onHide);
     };
-  }, [user, scrollToBottom]);
+  }, [settings.lockOnBackground, lock]);
 
-  async function sendMessage() {
-    const content = draft.trim();
-    if (!content || !user || sending) return;
-    setSending(true);
-    setDraft("");
-    const { error } = await supabase
-      .from("messages")
-      .insert({ user_id: user.id, content });
-    if (error) setDraft(content);
-    setSending(false);
-    inputRef.current?.focus();
+  // blur content when the app loses focus (screenshot / app switcher privacy)
+  useEffect(() => {
+    if (!settings.privacyBlur) {
+      document.body.classList.remove("app-obscured");
+      return;
+    }
+    const obscure = () => document.body.classList.add("app-obscured");
+    const reveal = () => document.body.classList.remove("app-obscured");
+    const onVis = () => (document.visibilityState === "hidden" ? obscure() : reveal());
+    window.addEventListener("blur", obscure);
+    window.addEventListener("focus", reveal);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("blur", obscure);
+      window.removeEventListener("focus", reveal);
+      document.removeEventListener("visibilitychange", onVis);
+      reveal();
+    };
+  }, [settings.privacyBlur]);
+
+  // shake / flip to lock and wipe
+  useEffect(() => {
+    if (!unlocked) return;
+    const handler = (e: DeviceMotionEvent) => {
+      const a = e.accelerationIncludingGravity;
+      if (!a) return;
+      const force = Math.abs(a.x ?? 0) + Math.abs(a.y ?? 0) + Math.abs(a.z ?? 0);
+      if (force > 45) void panic();
+    };
+    window.addEventListener("devicemotion", handler);
+    return () => window.removeEventListener("devicemotion", handler);
+  });
+
+  async function panic() {
+    if (user) {
+      const { data: memberships } = await supabase
+        .from("conversation_members")
+        .select("conversation_id")
+        .eq("user_id", user.id);
+      const ids = (memberships ?? []).map((m) => m.conversation_id);
+      if (ids.length) await supabase.from("conversations").delete().in("id", ids);
+    }
+    await wipeLocal();
+    lock();
   }
 
-  async function signOut() {
-    await supabase.auth.signOut();
-    navigate({ to: "/auth" });
+  const failsKey = "gk_fails";
+
+  async function handleEquals(pin: string) {
+    const nickname = storedNick();
+    if (!nickname) {
+      setOnboarding(pin);
+      return true;
+    }
+    const ok = await checkPin(pin);
+    if (!ok) {
+      const fails = Number(sessionStorage.getItem(failsKey) ?? "0") + 1;
+      sessionStorage.setItem(failsKey, String(fails));
+      if (fails >= 3) {
+        sessionStorage.removeItem(failsKey);
+        await wipeLocal();
+      }
+      return false;
+    }
+    sessionStorage.removeItem(failsKey);
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) await signInWithPin(nickname, pin);
+      const { data: after } = await supabase.auth.getSession();
+      if (!after.session) return false;
+      setUser(after.session.user);
+      setUnlocked(true);
+      return true;
+    } catch {
+      return false;
+    }
   }
 
-  if (checking || !user) {
+  async function finishOnboarding() {
+    if (!onboarding) return;
+    setNickError(null);
+    setBusy(true);
+    try {
+      await createIdentity(nick, onboarding);
+      const { data } = await supabase.auth.getSession();
+      if (!data.session) {
+        await signInWithPin(nick, onboarding);
+      }
+      const { data: after } = await supabase.auth.getSession();
+      if (!after.session) throw new Error("session");
+      setUser(after.session.user);
+      setUnlocked(true);
+      setOnboarding(null);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message.toLowerCase() : "";
+      setNickError(
+        msg.includes("already") || msg.includes("registered") || msg.includes("duplicate")
+          ? "Bu takma ad alınmış, başka bir tane dene."
+          : "Kimlik oluşturulamadı, tekrar dene.",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (onboarding) {
     return (
-      <div className="flex min-h-dvh items-center justify-center bg-background">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-border border-t-primary" />
+      <div className="flex min-h-dvh flex-col justify-center bg-black px-6 safe-top safe-bottom">
+        <h1 className="text-[22px] font-semibold text-white">Takma adını belirle</h1>
+        <p className="mt-1 text-sm text-[#8e8e93]">
+          E-posta yok, telefon yok. Girdiğin kod bundan sonra giriş şifren olacak.
+        </p>
+        <input
+          value={nick}
+          onChange={(e) => setNick(e.target.value)}
+          placeholder="takma_ad"
+          autoCapitalize="none"
+          className="mt-5 w-full rounded-2xl border border-[#333] bg-[#1c1c1e] px-4 py-3.5 text-[16px] text-white outline-none"
+        />
+        {nickError && <p className="mt-2 text-sm text-[#FF453A]">{nickError}</p>}
+        <button
+          onClick={() => void finishOnboarding()}
+          disabled={busy || nick.trim().length < 3}
+          className="mt-4 w-full rounded-2xl bg-[#0A84FF] py-3.5 text-[16px] font-semibold text-white disabled:opacity-40"
+        >
+          {busy ? "Oluşturuluyor…" : "Devam et"}
+        </button>
+        <button
+          onClick={() => {
+            setOnboarding(null);
+            setNick("");
+          }}
+          className="mt-3 text-center text-sm text-[#8e8e93]"
+        >
+          Vazgeç
+        </button>
       </div>
     );
   }
 
-  const me = profiles[user.id];
+  if (!unlocked || !user) {
+    return <Calculator onEquals={handleEquals} />;
+  }
 
   return (
-    <div className="flex h-dvh flex-col bg-background">
-      {/* iOS-style header */}
-      <header className="sticky top-0 z-10 border-b border-border bg-header backdrop-blur-xl safe-top">
-        <div className="flex items-center justify-between px-4 py-3">
-          <div className="flex items-center gap-3">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-full text-sm font-semibold text-white"
-              style={{ backgroundColor: me?.avatar_color ?? "#0A84FF" }}
-            >
-              {(me?.display_name ?? "?").slice(0, 1).toUpperCase()}
-            </div>
-            <div>
-              <h1 className="text-[17px] font-semibold leading-tight">Genel Sohbet</h1>
-              <p className="text-xs text-muted-foreground">{me?.display_name ?? "…"} olarak giriş yapıldı</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-4">
-            {notifPermission !== "unsupported" && notifPermission !== "granted" && (
-              <button
-                onClick={enableNotifications}
-                className="text-primary"
-                aria-label="Bildirimleri aç"
-                title="Bildirimleri aç"
-              >
-                <svg viewBox="0 0 24 24" className="h-5 w-5 fill-none stroke-current" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" />
-                  <path d="M13.7 21a2 2 0 0 1-3.4 0" />
-                </svg>
-              </button>
-            )}
-            {notifPermission === "granted" && (
-              <span className="text-primary" aria-label="Bildirimler açık" title="Bildirimler açık">
-                <svg viewBox="0 0 24 24" className="h-5 w-5 fill-current">
-                  <path d="M12 22a2.2 2.2 0 0 0 2.2-2.2H9.8A2.2 2.2 0 0 0 12 22Zm7-5.3v.5H5v-.5l1.8-1.8V9.2a5.2 5.2 0 0 1 3.9-5V3.5a1.3 1.3 0 0 1 2.6 0v.7a5.2 5.2 0 0 1 3.9 5v5.7L19 16.7Z" />
-                </svg>
-              </span>
-            )}
-            <button
-              onClick={signOut}
-              className="text-[15px] font-medium text-primary"
-              aria-label="Çıkış yap"
-            >
-              Çıkış
-            </button>
-          </div>
-        </div>
-      </header>
-
-      {/* Messages */}
-      <main className="flex-1 overflow-y-auto px-3 py-4 no-scrollbar">
-        {messages.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center text-center">
-            <div className="mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-secondary">
-              <svg viewBox="0 0 24 24" className="h-7 w-7 fill-muted-foreground">
-                <path d="M12 2C6.48 2 2 5.94 2 10.8c0 2.65 1.35 5.02 3.47 6.63-.11.83-.5 2.02-1.47 3.07 0 0-.19.2-.04.4.12.16.32.18.32.18 1.97.1 3.9-.62 5.02-1.34.86.18 1.76.27 2.7.27 5.52 0 10-3.94 10-8.8S17.52 2 12 2Z" />
-              </svg>
-            </div>
-            <p className="text-sm text-muted-foreground">Henüz mesaj yok.</p>
-            <p className="text-sm text-muted-foreground">İlk mesajı sen gönder!</p>
-          </div>
-        )}
-
-        {messages.map((msg, i) => {
-          const isMine = msg.user_id === user.id;
-          const profile = profiles[msg.user_id];
-          const prev = messages[i - 1];
-          const showDay = !prev || !sameDay(prev.created_at, msg.created_at);
-          const sameSenderAsPrev = prev && prev.user_id === msg.user_id && !showDay;
-
-          return (
-            <div key={msg.id}>
-              {showDay && (
-                <div className="my-4 text-center">
-                  <span className="rounded-full bg-secondary px-3 py-1 text-xs font-medium text-muted-foreground">
-                    {dayLabel(msg.created_at)}
-                  </span>
-                </div>
-              )}
-              <div
-                className={`animate-bubble-pop flex items-end gap-2 ${isMine ? "justify-end" : "justify-start"} ${
-                  sameSenderAsPrev ? "mt-0.5" : "mt-3"
-                }`}
-              >
-                {!isMine && (
-                  <div className="w-7 shrink-0">
-                    {!sameSenderAsPrev && (
-                      <div
-                        className="flex h-7 w-7 items-center justify-center rounded-full text-[11px] font-semibold text-white"
-                        style={{ backgroundColor: profile?.avatar_color ?? "#8e8e93" }}
-                      >
-                        {(profile?.display_name ?? "?").slice(0, 1).toUpperCase()}
-                      </div>
-                    )}
-                  </div>
-                )}
-                <div className={`flex max-w-[75%] flex-col ${isMine ? "items-end" : "items-start"}`}>
-                  {!isMine && !sameSenderAsPrev && (
-                    <span className="mb-0.5 ml-3 text-[11px] text-muted-foreground">
-                      {profile?.display_name ?? "Kullanıcı"}
-                    </span>
-                  )}
-                  <div
-                    className={`rounded-[20px] px-3.5 py-2 text-[16px] leading-snug break-words ${
-                      isMine
-                        ? "bg-bubble-out text-bubble-out-foreground rounded-br-[6px]"
-                        : "bg-bubble-in text-bubble-in-foreground rounded-bl-[6px]"
-                    }`}
-                  >
-                    {msg.content}
-                  </div>
-                  <span className="mt-0.5 px-1 text-[10px] text-muted-foreground">
-                    {formatTime(msg.created_at)}
-                  </span>
-                </div>
-              </div>
-            </div>
-          );
-        })}
-        <div ref={bottomRef} />
-      </main>
-
-      {/* iOS-style input bar */}
-      <footer className="border-t border-border bg-header backdrop-blur-xl safe-bottom">
-        <div className="flex items-center gap-2 px-3 py-2.5">
-          <input
-            ref={inputRef}
-            type="text"
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && !e.shiftKey) {
-                e.preventDefault();
-                sendMessage();
-              }
-            }}
-            placeholder="Mesaj"
-            enterKeyHint="send"
-            className="min-w-0 flex-1 rounded-full border border-input bg-background px-4 py-2.5 text-[16px] outline-none placeholder:text-muted-foreground focus:border-ring"
-          />
-          <button
-            onClick={sendMessage}
-            disabled={!draft.trim() || sending}
-            aria-label="Gönder"
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground transition-all disabled:opacity-40"
-          >
-            <svg viewBox="0 0 24 24" className="h-4.5 w-4.5 fill-current" style={{ width: 18, height: 18 }}>
-              <path d="M12 3l7 7-1.4 1.4L13 6.8V21h-2V6.8l-4.6 4.6L5 10l7-7z" />
-            </svg>
-          </button>
-        </div>
-      </footer>
-    </div>
+    <ChatApp
+      user={user}
+      settings={settings}
+      onSettings={updateSettings}
+      onLock={lock}
+      onPanic={() => void panic()}
+    />
   );
 }
