@@ -680,6 +680,37 @@ export default function ChatApp({ user, settings, onSettings, onLock, onPanic }:
           </button>
         </div>
       )}
+
+      {call.state !== "idle" && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-2 bg-black/95 px-6 text-white">
+          <p className="text-[15px] opacity-70">Şifreli sesli arama</p>
+          <p className="text-[24px] font-semibold">{active?.other?.display_name ?? "Sohbet"}</p>
+          <p className="mt-1 text-[14px] opacity-70">
+            {call.state === "calling"
+              ? "Aranıyor…"
+              : call.state === "incoming"
+                ? "Gelen arama"
+                : "Bağlandı — uçtan uca şifreli, aracı sunucu üzerinden"}
+          </p>
+          {call.error && <p className="mt-1 text-[13px] text-[#FF453A]">{call.error}</p>}
+          <div className="mt-8 flex gap-4">
+            {call.state === "incoming" && (
+              <button
+                onClick={() => void call.accept()}
+                className="rounded-full bg-[#30D158] px-8 py-4 text-[16px] font-semibold"
+              >
+                Cevapla
+              </button>
+            )}
+            <button
+              onClick={() => (call.state === "incoming" ? call.reject() : call.hangup())}
+              className="rounded-full bg-[#FF453A] px-8 py-4 text-[16px] font-semibold"
+            >
+              {call.state === "incoming" ? "Reddet" : "Bitir"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
