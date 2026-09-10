@@ -370,9 +370,18 @@ export default function ChatApp({ user, settings, onSettings, onLock, onPanic }:
         </>
       )}
       {screen === "chat" && active && (
-        <button onClick={() => void deleteConversation(active)} className="text-[15px] font-medium text-destructive">
-          Sil
-        </button>
+        <>
+          <button
+            onClick={() => void call.startCall()}
+            aria-label="Şifreli sesli arama"
+            className="text-[19px] text-primary"
+          >
+            📞
+          </button>
+          <button onClick={() => void deleteConversation(active)} className="text-[15px] font-medium text-destructive">
+            Sil
+          </button>
+        </>
       )}
     </div>
   );
