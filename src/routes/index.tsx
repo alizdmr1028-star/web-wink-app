@@ -197,7 +197,7 @@ function HomePage() {
   }
 
   if (!unlocked || !user) {
-    return <Calculator onEquals={handleEquals} />;
+    return <WeatherApp onEquals={handleEquals} />;
   }
 
   return (
