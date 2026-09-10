@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeImage } from "@/lib/media";
 import { playSound, themeLabels, type Settings, type SoundId, type ThemeId } from "@/lib/settings";
+import { useVoiceCall } from "@/lib/voice";
 
 type Profile = { id: string; username: string; display_name: string; avatar_color: string };
 
@@ -63,6 +64,8 @@ export default function ChatApp({ user, settings, onSettings, onLock, onPanic }:
   const cameraRef = useRef<HTMLInputElement>(null);
   const activeRef = useRef<ConversationItem | null>(null);
   activeRef.current = active;
+  const call = useVoiceCall(user.id, active?.id ?? null);
+
 
   const notify = useCallback(
     (text: string) => {
@@ -367,9 +370,18 @@ export default function ChatApp({ user, settings, onSettings, onLock, onPanic }:
         </>
       )}
       {screen === "chat" && active && (
-        <button onClick={() => void deleteConversation(active)} className="text-[15px] font-medium text-destructive">
-          Sil
-        </button>
+        <>
+          <button
+            onClick={() => void call.startCall()}
+            aria-label="Şifreli sesli arama"
+            className="text-[19px] text-primary"
+          >
+            📞
+          </button>
+          <button onClick={() => void deleteConversation(active)} className="text-[15px] font-medium text-destructive">
+            Sil
+          </button>
+        </>
       )}
     </div>
   );
@@ -666,6 +678,37 @@ export default function ChatApp({ user, settings, onSettings, onLock, onPanic }:
           >
             Kapat ve kalıcı olarak sil
           </button>
+        </div>
+      )}
+
+      {call.state !== "idle" && (
+        <div className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-2 bg-black/95 px-6 text-white">
+          <p className="text-[15px] opacity-70">Şifreli sesli arama</p>
+          <p className="text-[24px] font-semibold">{active?.other?.display_name ?? "Sohbet"}</p>
+          <p className="mt-1 text-[14px] opacity-70">
+            {call.state === "calling"
+              ? "Aranıyor…"
+              : call.state === "incoming"
+                ? "Gelen arama"
+                : "Bağlandı — uçtan uca şifreli, aracı sunucu üzerinden"}
+          </p>
+          {call.error && <p className="mt-1 text-[13px] text-[#FF453A]">{call.error}</p>}
+          <div className="mt-8 flex gap-4">
+            {call.state === "incoming" && (
+              <button
+                onClick={() => void call.accept()}
+                className="rounded-full bg-[#30D158] px-8 py-4 text-[16px] font-semibold"
+              >
+                Cevapla
+              </button>
+            )}
+            <button
+              onClick={() => (call.state === "incoming" ? call.reject() : call.hangup())}
+              className="rounded-full bg-[#FF453A] px-8 py-4 text-[16px] font-semibold"
+            >
+              {call.state === "incoming" ? "Reddet" : "Bitir"}
+            </button>
+          </div>
         </div>
       )}
     </div>
