@@ -3,6 +3,7 @@ import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeImage } from "@/lib/media";
 import { playSound, themeLabels, type Settings, type SoundId, type ThemeId } from "@/lib/settings";
+import { useVoiceCall } from "@/lib/voice";
 
 type Profile = { id: string; username: string; display_name: string; avatar_color: string };
 
@@ -63,6 +64,8 @@ export default function ChatApp({ user, settings, onSettings, onLock, onPanic }:
   const cameraRef = useRef<HTMLInputElement>(null);
   const activeRef = useRef<ConversationItem | null>(null);
   activeRef.current = active;
+  const call = useVoiceCall(user.id, active?.id ?? null);
+
 
   const notify = useCallback(
     (text: string) => {
