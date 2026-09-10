@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
-import Calculator from "@/components/Calculator";
+import WeatherApp from "@/components/WeatherApp";
 import ChatApp from "@/components/ChatApp";
 import { checkPin, createIdentity, signInWithPin, storedNick, wipeLocal } from "@/lib/identity";
 import { defaultSettings, loadSettings, saveSettings, type Settings } from "@/lib/settings";
@@ -10,10 +10,10 @@ import { defaultSettings, loadSettings, saveSettings, type Settings } from "@/li
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "Hesap Makinesi" },
-      { name: "description", content: "Basit, hızlı ve reklamsız bir hesap makinesi." },
-      { property: "og:title", content: "Hesap Makinesi" },
-      { property: "og:description", content: "Basit, hızlı ve reklamsız bir hesap makinesi." },
+      { title: "Hava Durumu — Anlık Tahmin" },
+      { name: "description", content: "Anlık sıcaklık, 7 günlük tahmin ve şehir arama. Hızlı ve reklamsız hava durumu." },
+      { property: "og:title", content: "Hava Durumu — Anlık Tahmin" },
+      { property: "og:description", content: "Anlık sıcaklık, 7 günlük tahmin ve şehir arama." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -197,7 +197,7 @@ function HomePage() {
   }
 
   if (!unlocked || !user) {
-    return <Calculator onEquals={handleEquals} />;
+    return <WeatherApp onEquals={handleEquals} />;
   }
 
   return (
