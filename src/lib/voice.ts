@@ -114,7 +114,7 @@ export function useVoiceCall(userId: string, conversationId: string | null) {
       const answer = await pc.createAnswer();
       await pc.setLocalDescription(answer);
       send({ kind: "answer", from: userId, sdp: answer });
-      setState("connected");
+      setState("calling");
     } catch {
       setError("Aramaya bağlanılamadı");
       cleanup();
@@ -138,7 +138,11 @@ export function useVoiceCall(userId: string, conversationId: string | null) {
         pendingOffer.current = sig.sdp;
         setState("incoming");
       } else if (sig.kind === "answer") {
-        await pcRef.current?.setRemoteDescription(sig.sdp);
+        const pc = pcRef.current;
+        if (!pc) return;
+        await pc.setRemoteDescription(sig.sdp);
+        for (const c of pendingIce.current) await pc.addIceCandidate(c);
+        pendingIce.current = [];
       } else if (sig.kind === "ice") {
         if (pcRef.current?.remoteDescription) await pcRef.current.addIceCandidate(sig.candidate);
         else pendingIce.current.push(sig.candidate);
