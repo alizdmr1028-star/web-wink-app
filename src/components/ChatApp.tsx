@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { User } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import { sanitizeImage } from "@/lib/media";
+import { decryptText, encryptText } from "@/lib/crypto";
 import { playSound, themeLabels, type Settings, type SoundId, type ThemeId } from "@/lib/settings";
 import { useVoiceCall } from "@/lib/voice";
 
@@ -156,7 +157,10 @@ export default function ChatApp({ user, settings, onSettings, onLock, onPanic }:
         const msg = payload.new as Message;
         if (msg.user_id === user.id) return;
         if (activeRef.current && msg.conversation_id === activeRef.current.id) {
-          setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+          void (async () => {
+            const clear = { ...msg, content: await decryptText(msg.conversation_id, msg.content) };
+            setMessages((prev) => (prev.some((m) => m.id === clear.id) ? prev : [...prev, clear]));
+          })();
         }
         notify("Sistem Güncellemesi mevcut");
       })
@@ -166,7 +170,10 @@ export default function ChatApp({ user, settings, onSettings, onLock, onPanic }:
       })
       .on("postgres_changes", { event: "UPDATE", schema: "public", table: "messages" }, (payload) => {
         const msg = payload.new as Message;
-        setMessages((prev) => prev.map((m) => (m.id === msg.id ? msg : m)));
+        void (async () => {
+          const clear = { ...msg, content: await decryptText(msg.conversation_id, msg.content) };
+          setMessages((prev) => prev.map((m) => (m.id === clear.id ? clear : m)));
+        })();
       })
       .subscribe();
     return () => {
@@ -185,7 +192,13 @@ export default function ChatApp({ user, settings, onSettings, onLock, onPanic }:
         .eq("conversation_id", active.id)
         .order("created_at", { ascending: true })
         .limit(300);
-      if (!cancelled) setMessages((data ?? []) as Message[]);
+      const decrypted = await Promise.all(
+        ((data ?? []) as Message[]).map(async (m) => ({
+          ...m,
+          content: await decryptText(m.conversation_id, m.content),
+        })),
+      );
+      if (!cancelled) setMessages(decrypted);
       await supabase
         .from("messages")
         .update({ read_at: new Date().toISOString() })
@@ -262,12 +275,13 @@ export default function ChatApp({ user, settings, onSettings, onLock, onPanic }:
     const content = draft.trim();
     if (!content || !active) return;
     setDraft("");
+    const sealed = await encryptText(active.id, content);
     const { data } = await supabase
       .from("messages")
-      .insert({ conversation_id: active.id, user_id: user.id, content })
+      .insert({ conversation_id: active.id, user_id: user.id, content: sealed })
       .select()
       .single();
-    if (data) setMessages((prev) => [...prev, data as Message]);
+    if (data) setMessages((prev) => [...prev, { ...(data as Message), content }]);
     await supabase.from("conversations").update({ updated_at: new Date().toISOString() }).eq("id", active.id);
   }
 
