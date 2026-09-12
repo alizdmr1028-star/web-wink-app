@@ -14,6 +14,17 @@ const ICE_SERVERS: RTCIceServer[] = [
     username: "openrelayproject",
     credential: "openrelayproject",
   },
+  {
+    // Second free endpoint set — raises the odds that at least one relay
+    // is reachable when the main one is saturated.
+    urls: [
+      "turn:staticauth.openrelay.metered.ca:80",
+      "turn:staticauth.openrelay.metered.ca:443",
+      "turns:staticauth.openrelay.metered.ca:443?transport=tcp",
+    ],
+    username: "openrelayproject",
+    credential: "openrelayproject",
+  },
 ];
 
 export type CallState = "idle" | "calling" | "incoming" | "connected";
