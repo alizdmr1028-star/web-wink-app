@@ -33,6 +33,8 @@ export function useVoiceCall(userId: string, conversationId: string | null) {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pendingOffer = useRef<RTCSessionDescriptionInit | null>(null);
   const pendingIce = useRef<RTCIceCandidateInit[]>([]);
+  const relaySeen = useRef(false);
+  const watchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const send = useCallback((payload: Signal) => {
     void channelRef.current?.send({ type: "broadcast", event: "signal", payload });
@@ -51,6 +53,11 @@ export function useVoiceCall(userId: string, conversationId: string | null) {
     }
     pendingOffer.current = null;
     pendingIce.current = [];
+    relaySeen.current = false;
+    if (watchdog.current) {
+      clearTimeout(watchdog.current);
+      watchdog.current = null;
+    }
     setState("idle");
   }, []);
 
@@ -67,8 +74,21 @@ export function useVoiceCall(userId: string, conversationId: string | null) {
     localRef.current = stream;
     stream.getTracks().forEach((t) => pc.addTrack(t, stream));
     pc.onicecandidate = (e) => {
-      if (e.candidate) send({ kind: "ice", from: userId, candidate: e.candidate.toJSON() });
+      if (!e.candidate) return;
+      if (e.candidate.candidate.includes(" typ relay")) relaySeen.current = true;
+      send({ kind: "ice", from: userId, candidate: e.candidate.toJSON() });
     };
+    if (watchdog.current) clearTimeout(watchdog.current);
+    watchdog.current = setTimeout(() => {
+      if (pcRef.current !== pc) return;
+      if (pc.connectionState === "connected") return;
+      setError(
+        relaySeen.current
+          ? "Bağlantı kurulamadı, tekrar dene."
+          : "Güvenli aracı sunucuya ulaşılamadı, arama başlatılamıyor.",
+      );
+      cleanup();
+    }, 15000);
     pc.ontrack = (e) => {
       let el = audioRef.current;
       if (!el) {
