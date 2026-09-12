@@ -33,6 +33,8 @@ export function useVoiceCall(userId: string, conversationId: string | null) {
   const channelRef = useRef<ReturnType<typeof supabase.channel> | null>(null);
   const pendingOffer = useRef<RTCSessionDescriptionInit | null>(null);
   const pendingIce = useRef<RTCIceCandidateInit[]>([]);
+  const relaySeen = useRef(false);
+  const watchdog = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const send = useCallback((payload: Signal) => {
     void channelRef.current?.send({ type: "broadcast", event: "signal", payload });
@@ -51,6 +53,11 @@ export function useVoiceCall(userId: string, conversationId: string | null) {
     }
     pendingOffer.current = null;
     pendingIce.current = [];
+    relaySeen.current = false;
+    if (watchdog.current) {
+      clearTimeout(watchdog.current);
+      watchdog.current = null;
+    }
     setState("idle");
   }, []);
 
